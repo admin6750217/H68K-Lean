@@ -2,7 +2,7 @@
 # files/etc/uci-defaults/99-enable-wifi
 # 首次启动时自动启用无线 radio（默认编译出的固件 wireless 是 disabled 状态）
 
-COUNTRY="CN"
+COUNTRY="US"
 # 按实际所在地区修改国家码，例如 CN / US / JP / HK 等
 
 # 打开所有 radio 并设置国家码
