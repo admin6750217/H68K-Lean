@@ -1,32 +1,57 @@
+# ==== 以下内容追加到 init-settings.sh 末尾 ====
+# 在编译主机上直接生成 uci-defaults 脚本并赋权，
+# 不依赖仓库里 files/ 目录携带的文件权限位（避免因 git/编辑器丢失可执行位导致脚本被跳过）
+
+echo "开始生成 wifi 自动启用脚本..."
+mkdir -p files/etc/uci-defaults
+
+cat > files/etc/uci-defaults/99-enable-wifi << 'WIFIEOF'
 #!/bin/sh
-# files/etc/uci-defaults/99-enable-wifi
-# 首次启动时自动启用无线 radio（默认编译出的固件 wireless 是 disabled 状态）
+# 首次开机自动启用无线；若未检测到任何 wifi-device 段，先强制重新探测硬件
 
-COUNTRY="US"
-# 按实际所在地区修改国家码，例如 CN / US / JP / HK 等
+logger -t enable-wifi "start"
 
-# 打开所有 radio 并设置国家码
-for radio in $(uci show wireless | grep -o "wireless\.radio[0-9]" | sort -u); do
-    uci set ${radio}.disabled='0'
-    uci set ${radio}.country="${COUNTRY}"
-done
+if ! uci -q show wireless | grep -q "=wifi-device"; then
+	logger -t enable-wifi "no wifi-device section, forcing 'wifi config' re-detect"
+	wifi config
+	sleep 2
+fi
 
-# 打开对应的 wifi-iface（部分模板下 SSID 广播段也带 disabled 标记）
-for iface in $(uci show wireless | grep -oE "wireless\.[@a-zA-Z0-9_]+" | grep -v "\.radio" | sort -u); do
-    if uci get ${iface}.disabled >/dev/null 2>&1; then
-        uci set ${iface}.disabled='0'
-    fi
-done
+if ! uci -q show wireless | grep -q "=wifi-device"; then
+	logger -t enable-wifi "still no wireless hardware detected after re-detect - check lspci/dmesg on this device"
+	exit 0
+fi
 
+. /lib/functions.sh
+COUNTRY="CN"
+
+enable_device() {
+	local cfg="$1"
+	uci set wireless.${cfg}.disabled='0'
+	uci set wireless.${cfg}.country="${COUNTRY}"
+}
+
+enable_iface() {
+	local cfg="$1"
+	[ -n "$(uci -q get wireless.${cfg}.disabled)" ] && \
+		uci set wireless.${cfg}.disabled='0'
+}
+
+config_load wireless
+config_foreach enable_device wifi-device
+config_foreach enable_iface wifi-iface
 uci commit wireless
 
-# 应用配置（放后台执行，避免阻塞首次启动流程）
-( wifi reload >/dev/null 2>&1 ) &
+( sleep 1; wifi reload >/dev/null 2>&1 ) &
 
+logger -t enable-wifi "done, wireless enabled"
 exit 0
+WIFIEOF
 
-
-
+chmod +x files/etc/uci-defaults/99-enable-wifi
+ls -la files/etc/uci-defaults/99-enable-wifi
+echo "wifi 自动启用脚本已生成并赋权"
+# ==== 追加内容结束 ====
 
 
 
