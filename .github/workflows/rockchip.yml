@@ -28,10 +28,10 @@ env:
   REPO_BRANCH: master
   PLATFORM_FILE: configs/Target-rockchip-L.txt
   CONFIG_FILE: configs/Packages.txt
-  CONFIG_5G: configs/Packages-5G.txt
+  # CONFIG_5G: configs/Packages-5G.txt  # 已禁用：H68K 不支持 5G 硬件
   SETTINGS_SH: scripts/init-settings.sh
   PACKAGES_SH: scripts/packages.sh
-  INSTALL5G_SH: scripts/install-5G.sh
+  # INSTALL5G_SH: scripts/install-5G.sh  # 已禁用：H68K 不支持 5G 硬件
   CLASH_CORE_SH: scripts/preset-clash-core-arm64-L.sh
   VLMCSD_SH: scripts/vlmcsd.sh
   UPLOAD_BIN_DIR: false
@@ -127,13 +127,13 @@ jobs:
         [ -d files ] && mv files openwrt/files || echo "files not found"
         [ -f $PLATFORM_FILE ] && cat $PLATFORM_FILE >> openwrt/.config
         [ -f $CONFIG_FILE ] && cat $CONFIG_FILE >> openwrt/.config
-        [ -f $CONFIG_5G ] && cat $CONFIG_5G >> openwrt/.config
-        chmod +x $VLMCSD_SH && $VLMCSD_SH
+        # [ -f $CONFIG_5G ] && cat $CONFIG_5G >> openwrt/.config  # 已禁用：不需要 5G 配置
+        [ -f $VLMCSD_SH ] && chmod +x $VLMCSD_SH && $VLMCSD_SH || echo "⚠️ vlmcsd.sh not found, skipping"
         cd openwrt
         rm target/linux/rockchip/patches-*/991-arm64-dts-rockchip-add-more-cpu-operating-points-for.patch || true
         chmod +x $GITHUB_WORKSPACE/$SETTINGS_SH && $GITHUB_WORKSPACE/$SETTINGS_SH
         chmod +x $GITHUB_WORKSPACE/$PACKAGES_SH && $GITHUB_WORKSPACE/$PACKAGES_SH
-        chmod +x $GITHUB_WORKSPACE/$INSTALL5G_SH && $GITHUB_WORKSPACE/$INSTALL5G_SH
+        # chmod +x $GITHUB_WORKSPACE/$INSTALL5G_SH && $GITHUB_WORKSPACE/$INSTALL5G_SH  # 已禁用：不需要 5G 安装
         chmod +x $GITHUB_WORKSPACE/$CLASH_CORE_SH && $GITHUB_WORKSPACE/$CLASH_CORE_SH
 
     - name: 下载文件
