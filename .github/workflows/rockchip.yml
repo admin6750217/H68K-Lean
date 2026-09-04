@@ -24,8 +24,8 @@ env:
   GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
   FREE_DISK_SH: scripts/free_disk_space.sh
   ENV_SH: scripts/environment.sh
-  REPO_URL: https://github.com/openwrt/openwrt
-  REPO_BRANCH: openwrt-25.12
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
   PLATFORM_FILE: configs/Target-rockchip-L.txt
   CONFIG_FILE: configs/Packages.txt
   # CONFIG_5G: configs/Packages-5G.txt  # 已禁用：H68K 不支持 5G 硬件
