@@ -2,6 +2,18 @@
 # 在编译主机上直接生成 uci-defaults 脚本并赋权，
 # 不依赖仓库里 files/ 目录携带的文件权限位（避免因 git/编辑器丢失可执行位导致脚本被跳过）
 
+
+# 修复 unetd 在新版 GCC 下 host.c strcpy array-bounds 误报导致 -Werror 编译失败
+UNETD_MK="package/network/services/unetd/Makefile"
+if [ -f "$UNETD_MK" ] && ! grep -q "Wno-error=array-bounds" "$UNETD_MK"; then
+  sed -i '/include \$(INCLUDE_DIR)\/package.mk/a TARGET_CFLAGS += -Wno-error=array-bounds' "$UNETD_MK"
+  echo "unetd array-bounds 警告已降级"
+fi
+
+
+
+
+
 echo "开始生成 wifi 自动启用脚本..."
 mkdir -p files/etc/uci-defaults
 
