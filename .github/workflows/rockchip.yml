@@ -26,14 +26,16 @@ env:
   ENV_SH: scripts/environment.sh
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
-  PLATFORM_FILE: configs/Target-rockchip-L.txt
-  CONFIG_FILE: configs/Packages.txt
-  # CONFIG_5G: configs/Packages-5G.txt  # 已禁用：H68K 不支持 5G 硬件
+  PLATFORM_FILE: configs/ROCKCHIP.txt
   SETTINGS_SH: scripts/init-settings.sh
   PACKAGES_SH: scripts/packages.sh
-  # INSTALL5G_SH: scripts/install-5G.sh  # 已禁用：H68K 不支持 5G 硬件
+  HANDLES_SH: scripts/handles.sh
   CLASH_CORE_SH: scripts/preset-clash-core-arm64-L.sh
-  VLMCSD_SH: scripts/vlmcsd.sh
+  WRT_CONFIG: ROCKCHIP
+  WRT_IP: 192.168.8.1
+  WRT_NAME: H68K
+  WRT_SSID: H68K
+  WRT_WORD: 12345678
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: false
   TZ: Asia/Shanghai
@@ -126,14 +128,13 @@ jobs:
       run: |
         [ -d files ] && mv files openwrt/files || echo "files not found"
         [ -f $PLATFORM_FILE ] && cat $PLATFORM_FILE >> openwrt/.config
-        [ -f $CONFIG_FILE ] && cat $CONFIG_FILE >> openwrt/.config
-        # [ -f $CONFIG_5G ] && cat $CONFIG_5G >> openwrt/.config  # 已禁用：不需要 5G 配置
-        [ -f $VLMCSD_SH ] && chmod +x $VLMCSD_SH && $VLMCSD_SH || echo "⚠️ vlmcsd.sh not found, skipping"
         cd openwrt
         rm target/linux/rockchip/patches-*/991-arm64-dts-rockchip-add-more-cpu-operating-points-for.patch || true
         chmod +x $GITHUB_WORKSPACE/$SETTINGS_SH && $GITHUB_WORKSPACE/$SETTINGS_SH
+        cd package
         chmod +x $GITHUB_WORKSPACE/$PACKAGES_SH && $GITHUB_WORKSPACE/$PACKAGES_SH
-        # chmod +x $GITHUB_WORKSPACE/$INSTALL5G_SH && $GITHUB_WORKSPACE/$INSTALL5G_SH  # 已禁用：不需要 5G 安装
+        chmod +x $GITHUB_WORKSPACE/$HANDLES_SH && $GITHUB_WORKSPACE/$HANDLES_SH
+        cd ..
         chmod +x $GITHUB_WORKSPACE/$CLASH_CORE_SH && $GITHUB_WORKSPACE/$CLASH_CORE_SH
 
     - name: 下载文件
@@ -174,10 +175,28 @@ jobs:
       run: |
         cd openwrt/bin/targets/*/*
         rm -rf *.bin
-        rm -rf *.buildinfo 
-        rm -rf *.json 
-        rm -rf *.manifest 
         rm -rf packages
+        cp $GITHUB_WORKSPACE/openwrt/.config ./H68K-final.config
+        cp $GITHUB_WORKSPACE/configs/ROCKCHIP.txt ./H68K-source.config
+        {
+          echo "H68K build configuration summary"
+          echo "Build time: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "Source: $REPO_URL $REPO_BRANCH"
+          echo "Source commit: $WRT_HASH"
+          echo "Default IP: $WRT_IP"
+          echo "Default hostname: $WRT_NAME"
+          echo "Default WiFi SSID: $WRT_SSID"
+          echo "Conntrack max: 655200"
+          echo
+          echo "Enabled H68K target:"
+          grep -E '^CONFIG_TARGET_rockchip|^CONFIG_TARGET_rockchip_armv8_DEVICE_hinlink_opc-h68k=y' $GITHUB_WORKSPACE/openwrt/.config || true
+          echo
+          echo "Required WiFi/USB/storage/proxy packages:"
+          grep -E 'CONFIG_PACKAGE_(kmod-mt7921|kmod-mt792x|wpad-openssl|hostapd|kmod-usb|usb-modeswitch|umbim|uqmi|wwan|block-mount|automount|luci-app-(passwall|smartdns|mosdns|homeproxy|openclash))' $GITHUB_WORKSPACE/openwrt/.config || true
+          echo
+          echo "Disabled unused NIC/GPU/modem packages:"
+          grep -E '# CONFIG_PACKAGE_(kmod-(e100|e1000|e1000e|igb|igc|r8125|r8125-rss|r8168|drm-rockchip|drm-panfrost|mhi)|kmod-rtw|kmod-rtl|kmod-mtk-t7xx)' $GITHUB_WORKSPACE/openwrt/.config || true
+        } > ./H68K-build-details.txt
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 

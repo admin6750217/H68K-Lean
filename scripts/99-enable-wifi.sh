@@ -1,42 +1,27 @@
 #!/bin/sh
-# files/etc/uci-defaults/99-enable-wifi
-# 首次启动时自动启用无线；如果还没有生成无线配置，先触发一次硬件探测。
 
-logger -t enable-wifi "start"
+[ -s /etc/config/wireless ] || wifi config
 
-if ! uci -q show wireless | grep -q "=wifi-device"; then
-	logger -t enable-wifi "no wifi-device section, forcing 'wifi config' re-detect"
-	wifi config >/dev/null 2>&1 || true
-	sleep 2
-fi
+mkdir -p /etc/sysctl.d
+cat > /etc/sysctl.d/99-h68k-conntrack.conf <<'SYSCTL'
+net.netfilter.nf_conntrack_max=655200
+SYSCTL
+sysctl -w net.netfilter.nf_conntrack_max=655200 >/dev/null 2>&1 || true
 
-if ! uci -q show wireless | grep -q "=wifi-device"; then
-	logger -t enable-wifi "still no wireless hardware detected after re-detect"
-	exit 0
-fi
+for device in $(uci -q show wireless | sed -n 's/^\(wireless\.[^.]*\)=wifi-device$/\1/p'); do
+	uci -q set "$device.disabled=0"
+	uci -q set "$device.country=CN"
+done
 
-. /lib/functions.sh
-COUNTRY="CN"
+for iface in $(uci -q show wireless | sed -n 's/^\(wireless\.[^.]*\)=wifi-iface$/\1/p'); do
+	uci -q set "$iface.disabled=0"
+	uci -q set "$iface.mode=ap"
+	uci -q set "$iface.network=lan"
+	uci -q set "$iface.encryption=psk2"
+	uci -q set "$iface.ssid=${WRT_SSID:-H68K}"
+	uci -q set "$iface.key=${WRT_WORD:-12345678}"
+done
 
-enable_device() {
-	local cfg="$1"
-	uci set wireless.${cfg}.disabled='0'
-	uci set wireless.${cfg}.country="${COUNTRY}"
-}
-
-enable_iface() {
-	local cfg="$1"
-	if [ -n "$(uci -q get wireless.${cfg}.disabled)" ]; then
-		uci set wireless.${cfg}.disabled='0'
-	fi
-}
-
-config_load wireless
-config_foreach enable_device wifi-device
-config_foreach enable_iface wifi-iface
-uci commit wireless
-
-( sleep 1; wifi reload >/dev/null 2>&1 ) &
-
-logger -t enable-wifi "done, wireless enabled"
+uci -q commit wireless
+wifi reload >/dev/null 2>&1 || wifi up >/dev/null 2>&1 || true
 exit 0
